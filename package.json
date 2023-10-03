@@ -43,8 +43,19 @@
         "command": "fauxpilot.disable",
         "title": "Disable Fauxpilot",
         "shortTitle": "Disable Fauxpilot"
+      },
+      {
+      "command": "extension.sendCodeToCopilot",
+      "title": "Send to Copilot"
       }
     ],
+    "menus": {
+            "editor/context": [
+                {
+                    "command": "extension.sendCodeToCopilot"
+                }
+            ]
+        },
     "configuration": {
       "title": "Fauxpilot",
       "properties": {
@@ -78,7 +89,7 @@
         },
         "fauxpilot.suggestionDelay": {
           "type": "number",
-          "default": 150
+          "default": 1500
         },
         "fauxpilot.enabled": {
           "type": "boolean",

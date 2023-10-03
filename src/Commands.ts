@@ -1,4 +1,5 @@
-import { ConfigurationTarget, workspace } from "vscode";
+import { ConfigurationTarget, Position, Range, StatusBarAlignment, window, workspace } from "vscode";
+import { FauxpilotCompletionProvider } from "./FauxpilotCompletionProvider";
 
 const configuration = workspace.getConfiguration();
 const target = ConfigurationTarget.Global;
@@ -19,3 +20,17 @@ export const turnOffFauxpilot: Command = {
     command: "fauxpilot.disable",
     callback: () => setExtensionStatus(false)
 };
+
+export async function sendCodeToCopilot(startPosition: Position, endPosition: Position): Promise<void> {
+    const selectedCode = window.activeTextEditor?.document.getText(new Range(startPosition, endPosition));
+    if (selectedCode) {
+        const statusBar = window.createStatusBarItem(StatusBarAlignment.Right);
+        statusBar.text = "$(light-bulb)";
+        statusBar.tooltip = `Fauxpilot - Ready`;
+        const provider = new FauxpilotCompletionProvider(statusBar);
+        await provider.sendCustomPromptToServer(selectedCode, endPosition);
+    }
+};
+
+
+

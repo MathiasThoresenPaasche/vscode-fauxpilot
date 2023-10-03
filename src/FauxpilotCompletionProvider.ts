@@ -3,6 +3,9 @@ import { CancellationToken, InlineCompletionContext, InlineCompletionItem, Inlin
 import { AxiosResponse } from 'axios';
 import { nextId } from './Uuid';
 import { LEADING_LINES_PROP } from './Constants';
+import { window } from 'vscode';
+
+
 
 export class FauxpilotCompletionProvider implements InlineCompletionItemProvider {
     cachedPrompts: Map<string, number> = new Map<string, number>();
@@ -13,6 +16,7 @@ export class FauxpilotCompletionProvider implements InlineCompletionItemProvider
     private openai: OpenAIApi = new OpenAIApi(this.configuration, `${workspace.getConfiguration('fauxpilot').get("server")}/${workspace.getConfiguration('fauxpilot').get("engine")}`);
     private requestStatus: string = "done";
     private statusBar: StatusBarItem;
+    public  currentId = 0;
 
     constructor(statusBar: StatusBarItem){
         this.statusBar = statusBar;
@@ -57,7 +61,7 @@ export class FauxpilotCompletionProvider implements InlineCompletionItemProvider
 
         return this.callOpenAi(prompt as String).then((response) => {
             this.statusBar.text = "$(light-bulb)";
-            return this.toInlineCompletions(response.data, position);
+    return this.toInlineCompletions(response.data, position);
         }).catch((error) => {
             console.error(error);
             this.statusBar.text = "$(alert)";
@@ -68,7 +72,59 @@ export class FauxpilotCompletionProvider implements InlineCompletionItemProvider
             this.cachedPrompts.delete(currentId);
         });
     }
+    //@ts-ignore
+    public async sendCustomPromptToServer(prompt: string, selectionEndPosition: Position): ProviderResult<InlineCompletionItem[] | InlineCompletionList> {
+        if (!workspace.getConfiguration('fauxpilot').get("enabled")) {
+            console.debug("Extension not enabled, skipping.");
+            return Promise.resolve(([] as InlineCompletionItem[]));
+        }
+        
 
+            
+        console.debug("Requesting completion for prompt", prompt);
+
+        if (this.isNil(prompt)) {
+            console.debug("Prompt is empty, skipping");
+            return Promise.resolve(([] as InlineCompletionItem[]));
+        }
+        const response = await this.callOpenAi(prompt);
+        const currentTimestamp = Date.now();
+        const currentId = nextId();
+        this.cachedPrompts.set(currentId, currentTimestamp);
+
+        // check there is no newer request util this.request_status is done
+        while (this.requestStatus === "pending") {
+            await this.sleep(200);
+            console.debug("current id = ", currentId, " request status = ", this.requestStatus);
+            if (this.newestTimestamp() > currentTimestamp) {
+                console.debug("newest timestamp=", this.newestTimestamp(), "current timestamp=", currentTimestamp);
+                console.debug("Newer request is pending, skipping");
+                this.cachedPrompts.delete(currentId);
+                return Promise.resolve(([] as InlineCompletionItem[]));
+            }
+        }
+
+        console.debug("current id = ", currentId, "set request status to pending.", "End position", selectionEndPosition);
+        this.requestStatus = "pending";
+        this.statusBar.tooltip = "Fauxpilot - Working";
+        this.statusBar.text = "$(loading~spin)";
+
+
+        return this.callOpenAi(prompt as String).then((response) => {
+            this.statusBar.text = "$(light-bulb)";
+    return this.toInlineCompletions(response.data, selectionEndPosition);
+        }).catch((error) => {
+            console.error(error);
+            this.statusBar.text = "$(alert)";
+            return ([] as InlineCompletionItem[]);
+        }).finally(() => {
+            console.debug("current ASK id = ", currentId, "set request status to done");
+            console.debug(response.data.choices?.at(0)?.text)
+            this.requestStatus = "done";
+            this.cachedPrompts.delete(currentId);
+        });
+    }
+    
     private getPrompt(document: TextDocument, position: Position): String | undefined {        
         const promptLinesCount = workspace.getConfiguration('fauxpilot').get("maxLines") as number;
 
@@ -117,8 +173,15 @@ export class FauxpilotCompletionProvider implements InlineCompletionItemProvider
         });
     }
 
-    private toInlineCompletions(value: CreateCompletionResponse, position: Position): InlineCompletionItem[] {
+    // private toInlineCompletions(value: CreateCompletionResponse, position: Position): InlineCompletionItem[] {
+    //     return value.choices?.map(choice => choice.text)
+    //         .map(choiceText => new InlineCompletionItem(choiceText as string, new Range(position, position))) || [];
+    // }
+    private toInlineCompletions(value: CreateCompletionResponse, endPosition: Position): InlineCompletionItem[] {
+        const selectedRange = new Range(endPosition, endPosition); // Range starting and ending at the end position
+    
         return value.choices?.map(choice => choice.text)
-            .map(choiceText => new InlineCompletionItem(choiceText as string, new Range(position, position))) || [];
+            .map(choiceText => new InlineCompletionItem(choiceText as string, selectedRange)) || [];
     }
+    
 }

@@ -73,10 +73,10 @@ export class FauxpilotCompletionProvider implements InlineCompletionItemProvider
         });
     }
     //@ts-ignore
-    public async sendCustomPromptToServer(prompt: string, selectionEndPosition: Position): ProviderResult<InlineCompletionItem[] | InlineCompletionList> {
+    public async sendCustomPromptToServer(prompt: string): string {
         if (!workspace.getConfiguration('fauxpilot').get("enabled")) {
             console.debug("Extension not enabled, skipping.");
-            return Promise.resolve(([] as InlineCompletionItem[]));
+            return "Error. Faux pilot not enabled";
         }
         
 
@@ -85,7 +85,7 @@ export class FauxpilotCompletionProvider implements InlineCompletionItemProvider
 
         if (this.isNil(prompt)) {
             console.debug("Prompt is empty, skipping");
-            return Promise.resolve(([] as InlineCompletionItem[]));
+            return "Prompt is empty, skipping";
         }
         const response = await this.callOpenAi(prompt);
         const currentTimestamp = Date.now();
@@ -100,11 +100,11 @@ export class FauxpilotCompletionProvider implements InlineCompletionItemProvider
                 console.debug("newest timestamp=", this.newestTimestamp(), "current timestamp=", currentTimestamp);
                 console.debug("Newer request is pending, skipping");
                 this.cachedPrompts.delete(currentId);
-                return Promise.resolve(([] as InlineCompletionItem[]));
+                return "skip";
             }
         }
 
-        console.debug("current id = ", currentId, "set request status to pending.", "End position", selectionEndPosition);
+        console.debug("current id = ", currentId, "set request status to pending.", "End position");
         this.requestStatus = "pending";
         this.statusBar.tooltip = "Fauxpilot - Working";
         this.statusBar.text = "$(loading~spin)";
@@ -112,17 +112,17 @@ export class FauxpilotCompletionProvider implements InlineCompletionItemProvider
 
         return this.callOpenAi(prompt as String).then((response) => {
             this.statusBar.text = "$(light-bulb)";
-    return this.toInlineCompletions(response.data, selectionEndPosition);
-        }).catch((error) => {
+            return (response.data.choices?.at(0)?.text);
+            }).catch((error) => {
             console.error(error);
             this.statusBar.text = "$(alert)";
-            return ([] as InlineCompletionItem[]);
-        }).finally(() => {
+            return error;
+            }).finally(() => {
             console.debug("current ASK id = ", currentId, "set request status to done");
             console.debug(response.data.choices?.at(0)?.text)
             this.requestStatus = "done";
             this.cachedPrompts.delete(currentId);
-        });
+            });
     }
     
     private getPrompt(document: TextDocument, position: Position): String | undefined {        

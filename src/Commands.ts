@@ -21,15 +21,34 @@ export const turnOffFauxpilot: Command = {
     callback: () => setExtensionStatus(false)
 };
 
-export async function sendCodeToCopilot(startPosition: Position, endPosition: Position): Promise<void> {
+// export async function sendCodeToCopilot(startPosition: Position, endPosition: Position): Promise<void> {
+//     const selectedCode = window.activeTextEditor?.document.getText(new Range(startPosition, endPosition));
+//     if (selectedCode) {
+//         const statusBar = window.createStatusBarItem(StatusBarAlignment.Right);
+//         statusBar.text = "$(light-bulb)";
+//         statusBar.tooltip = `Fauxpilot - Ready`;
+//         const provider = new FauxpilotCompletionProvider(statusBar);
+//         await provider.sendCustomPromptToServer(selectedCode, endPosition);
+//     }
+// };
+
+export async function sendCodeToCopilot(startPosition: Position, endPosition: Position): Promise<string> {
     const selectedCode = window.activeTextEditor?.document.getText(new Range(startPosition, endPosition));
+    // For now, let's assume suggestions is an array of strings returned by the server
     if (selectedCode) {
         const statusBar = window.createStatusBarItem(StatusBarAlignment.Right);
         statusBar.text = "$(light-bulb)";
         statusBar.tooltip = `Fauxpilot - Ready`;
         const provider = new FauxpilotCompletionProvider(statusBar);
-        await provider.sendCustomPromptToServer(selectedCode, endPosition);
+        const response_string = await provider.sendCustomPromptToServer(selectedCode);
+        if (typeof response_string === 'string' ){
+            console.debug("Commands.ts: respons.string", response_string);
+            return response_string;
+        }else{
+            return "Not a response";
+        }
     }
+    return "Not a response"
 };
 
 

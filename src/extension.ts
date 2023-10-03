@@ -83,64 +83,6 @@ export function deactivate() {
 }
 
 
-function applySuggestions(originalCode: string, suggestions: string): string {
-    // Logic to apply suggestions and return modified code
-    // For now, let's simply join the suggestions into the original code
-    return originalCode + '\n' + suggestions + '\n';
-}
-
-// function getWebViewContent(selectedCode: string, suggestedCode: string): string {
-
-
-// 	const modifiedCode = applySuggestions(selectedCode, suggestedCode)
-//     // Compare the original and modified lines to find the added lines
-	
-
-    
-
-//     // HTML and CSS for the webview
-//     const html = `
-//         <html>
-//             <head>
-//                 <meta charset="UTF-8">
-//                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-//                 <link rel="stylesheet" href="./reset.css">
-//                 <link rel="stylesheet" href="./style.css">
-//                 <title>Webview Content</title>
-//                 <style>
-//                     .container {
-//                         display: flex;
-//                     }
-//                     .panel {
-//                         width: 100%;
-//                         padding: 20px;
-//                     }
-//                     .new-line {
-//                         color: green;
-//                     }
-//                 </style>
-//             </head>
-//             <body>
-//                 <div class="container">
-//                     <div class="panel">
-//                         <h2>Copilot response</h2>
-//                         <pre>${modifiedCode}</pre>
-//                     </div>
-//                 </div>
-//             </body>
-//         </html>
-//     `;
-
-//     return html;
-// }
-
-// function formatModifiedCode(modifiedLines: string[]): string {
-//     // Prefix new lines with a green star
-//     const formattedLines = modifiedLines.map(line => `<span class="new-line">★ </span>${escapeHtml(line)}`);
-
-//     // Join the lines back into a string
-//     return formattedLines.join('<br>');
-// }
 
 function getWebViewContent(selectedCode: string, suggestedCode: string): string {
     // HTML and CSS for the webview
@@ -172,32 +114,25 @@ function getWebViewContent(selectedCode: string, suggestedCode: string): string 
                     <h2>Copilot Suggestions</h2>
                     <div class="code-line">${escapeHtml(selectedCode)}</div>
                     <div class="code-line marker">${escapeHtml(suggestedCode)}</div>
+                    <button id="copyButton">Copy</button>
                 </div>
             </body>
         </html>
+        <script>
+            document.getElementById('copyButton').addEventListener('click', function() {
+                const suggestedCode = \`${escapeHtml(suggestedCode)}\`; // Get the unmodified suggested code
+                const textarea = document.createElement('textarea');
+                textarea.value = suggestedCode;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert('Copied to clipboard!');
+            });
+        </script>
     `;
     return html;
 }
-
-
-function formatCode(selectedLines: string[], suggestedLines: string[]): string {
-    let formattedCode = '';
-
-    selectedLines.forEach((line, index) => {
-        const lineNumber = index + 1;
-        formattedCode += `<div class="code-line">${lineNumber}. ${escapeHtml(line)}</div>`;
-
-        if (suggestedLines.includes(lineNumber.toString())) {
-            const suggestedLine = suggestedLines[suggestedLines.indexOf(lineNumber.toString())];
-            formattedCode += `<div class="code-line marker">${escapeHtml(suggestedLine)}</div>`;
-        }
-    });
-
-    return formattedCode;
-}
-
-
-
 
 function escapeHtml(html: string): string {
     return html.replace(/</g, '&lt;').replace(/>/g, '&gt;');

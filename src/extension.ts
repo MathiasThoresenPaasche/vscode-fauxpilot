@@ -60,13 +60,30 @@ export function activate(context: ExtensionContext) {
             // const modifiedCode = applySuggestions(selectedCode, suggestedCode);
 
             panel.webview.html = getWebViewContent(selectedCode, suggestedCode);
+            panel.webview.onDidReceiveMessage((message) => {
+                switch (message.command) {
+                    case 'insertSuggestedCode':
+                        vscode.commands.executeCommand('extension.insertSuggestedCode', message.text);
+                        console.debug("Inserted suggested code into active window");
+                        break;
+                }
+            }, undefined, context.subscriptions);
         }),
 
 		languages.registerInlineCompletionItemProvider(
 			{ pattern: "**" }, new FauxpilotCompletionProvider(statusBar)
 		),
-
-		
+        commands.registerCommand('extension.insertSuggestedCode', (suggestedCode: string) => {
+            const editor = vscode.window.activeTextEditor;
+            if (editor) {
+                editor.edit((editBuilder) => {
+                    // Get the selection range or the end of the document
+                    const position = editor.selection.isEmpty ? editor.selection.active : editor.selection.end;
+                    // Insert the suggested code at the cursor position
+                    editBuilder.insert(position, suggestedCode);
+                });
+            }
+        }),
 		commands.registerCommand(turnOnFauxpilot.command, statusUpdateCallback(turnOnFauxpilot.callback, true)),
 		commands.registerCommand(turnOffFauxpilot.command, statusUpdateCallback(turnOffFauxpilot.callback, false)),
 		statusBar
@@ -115,6 +132,7 @@ function getWebViewContent(selectedCode: string, suggestedCode: string): string 
                     <div class="code-line">${escapeHtml(selectedCode)}</div>
                     <div class="code-line marker">${escapeHtml(suggestedCode)}</div>
                     <button id="copyButton">Copy</button>
+                    <button id="insertButton">Insert Suggested Code</button>
                 </div>
             </body>
         </html>
@@ -128,6 +146,13 @@ function getWebViewContent(selectedCode: string, suggestedCode: string): string 
                 document.execCommand('copy');
                 document.body.removeChild(textarea);
                 alert('Copied to clipboard!');
+            });
+            document.getElementById('insertButton').addEventListener('click', function() {
+                const suggestedCode = \`${escapeHtml(suggestedCode)}\`;
+                vscode.postMessage({
+                    command: 'insertSuggestedCode',
+                    text: suggestedCode
+                });
             });
         </script>
     `;

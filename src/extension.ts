@@ -4,7 +4,8 @@ import { commands, ExtensionContext, languages, Selection, StatusBarAlignment, w
 import { sendCodeToCopilot, turnOffFauxpilot, turnOnFauxpilot } from './Commands';
 import { FauxpilotCompletionProvider } from './FauxpilotCompletionProvider';
 import * as vscode from 'vscode';
-
+import * as fs from 'fs';
+import path = require('path');
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: ExtensionContext) {
@@ -25,10 +26,12 @@ export function activate(context: ExtensionContext) {
 
 	
 
+    let previousEditor: vscode.TextEditor | undefined;
 
 	context.subscriptions.push(
 		commands.registerCommand('extension.sendCodeToCopilot', async () => {
             const editor = window.activeTextEditor;
+            previousEditor = window.activeTextEditor;
             if (editor) {
                 const { start, end } = editor.selection;
               	const selectedCode = editor.document.getText(editor.selection);
@@ -39,8 +42,8 @@ export function activate(context: ExtensionContext) {
         }),
 		vscode.commands.registerCommand('extension.showSuggestions', (selectedCode: string, suggestedCode: string) => {
             // Get the active text editor
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
+            // const editor = vscode.window.activeTextEditor;
+            if (!previousEditor) {
                 vscode.window.showErrorMessage('No active editor found.');
                 return;
             }
@@ -63,7 +66,7 @@ export function activate(context: ExtensionContext) {
             panel.webview.onDidReceiveMessage((message) => {
                 switch (message.command) {
                     case 'insertSuggestedCode':
-                        vscode.commands.executeCommand('extension.insertSuggestedCode', message.text);
+                        vscode.commands.executeCommand('extension.insertSuggestedCode', suggestedCode);
                         console.debug("Inserted suggested code into active window");
                         break;
                 }
@@ -74,15 +77,27 @@ export function activate(context: ExtensionContext) {
 			{ pattern: "**" }, new FauxpilotCompletionProvider(statusBar)
 		),
         commands.registerCommand('extension.insertSuggestedCode', (suggestedCode: string) => {
-            const editor = vscode.window.activeTextEditor;
-            if (editor) {
+            // const editor = vscode.window.activeTextEditor;
+            if (previousEditor != undefined) {
+                const editor = previousEditor;
                 editor.edit((editBuilder) => {
                     // Get the selection range or the end of the document
                     const position = editor.selection.isEmpty ? editor.selection.active : editor.selection.end;
                     // Insert the suggested code at the cursor position
                     editBuilder.insert(position, suggestedCode);
                 });
-            }
+            }else{
+                const editor = vscode.window.activeTextEditor;
+                if (editor) {
+                    editor.edit((editBuilder) => {
+                        // Get the selection range or the end of the document
+                        const position = editor.selection.isEmpty ? editor.selection.active : editor.selection.end;
+                        // Insert the suggested code at the cursor position
+                        editBuilder.insert(position, suggestedCode);
+                    });
+
+                }
+            }   
         }),
 		commands.registerCommand(turnOnFauxpilot.command, statusUpdateCallback(turnOnFauxpilot.callback, true)),
 		commands.registerCommand(turnOffFauxpilot.command, statusUpdateCallback(turnOffFauxpilot.callback, false)),
@@ -101,62 +116,41 @@ export function deactivate() {
 
 
 
+function loadFileContent(filePath: string): string {
+    try {
+        return fs.readFileSync(filePath, 'utf-8');
+    } catch (error) {
+        console.error(`Error reading file ${filePath}: ${error}`);
+        return '';
+    }
+}
+
 function getWebViewContent(selectedCode: string, suggestedCode: string): string {
-    // HTML and CSS for the webview
-    const html = `
-        <html>
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <link rel="stylesheet" href="./reset.css">
-                <link rel="stylesheet" href="./vscode.css">
-                <title>Webview Content</title>
-            </head>
-            <style>
-            .marker {
-                background-color: #0cf01431; /* Light green background for suggested lines */
-                padding: 2px;
-                border-radius: 2px;
-                font-family: var(--vscode-editor-font-family); /* Specify your desired font family */
-                font-size: 12px; /* Adjust font size as needed */
-                /* Add any other styles specific to marker (suggested) lines */
-            
-            }
-            .code-line {
-                margin: 5px 0;
-            }
-            </style>
-            <body>
-                <div class="code-container">
-                    <h2>Copilot Suggestions</h2>
-                    <div class="code-line">${escapeHtml(selectedCode)}</div>
-                    <div class="code-line marker">${escapeHtml(suggestedCode)}</div>
-                    <button id="copyButton">Copy</button>
-                    <button id="insertButton">Insert Suggested Code</button>
-                </div>
-            </body>
-        </html>
+    // Load HTML and JavaScript files
+    const htmlFilePath = path.join("/home/mtp/.vscode/extensions/vscode-fauxpilot", 'src', 'webview', 'webview.html');
+    const jsFilePath = path.join("/home/mtp/.vscode/extensions/vscode-fauxpilot", 'src', 'webview', 'webview.js');
+    const htmlContent = loadFileContent(htmlFilePath);
+    const jsContent = loadFileContent(jsFilePath);
+
+
+    
+    // Replace placeholders in the HTML content with actual code
+    const modifiedHtmlContent = htmlContent
+        .replace('${escapeHtml(selectedCode)}', escapeHtml(selectedCode))
+        .replace('${escapeHtml(suggestedCode)}', escapeHtml(suggestedCode));
+    const modifiedjsContent = jsContent
+        .replace('${escapeHtml(selectedCode)}', escapeHtml(selectedCode))
+        .replace('${escapeHtml(suggestedCode)}', escapeHtml(suggestedCode));
+        // Combine HTML content with JavaScript content
+
+    const finalHtmlContent = `
+        ${modifiedHtmlContent}
         <script>
-            document.getElementById('copyButton').addEventListener('click', function() {
-                const suggestedCode = \`${escapeHtml(suggestedCode)}\`; // Get the unmodified suggested code
-                const textarea = document.createElement('textarea');
-                textarea.value = suggestedCode;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-                alert('Copied to clipboard!');
-            });
-            document.getElementById('insertButton').addEventListener('click', function() {
-                const suggestedCode = \`${escapeHtml(suggestedCode)}\`;
-                vscode.postMessage({
-                    command: 'insertSuggestedCode',
-                    text: suggestedCode
-                });
-            });
+            ${modifiedjsContent}
         </script>
     `;
-    return html;
+
+    return finalHtmlContent;
 }
 
 function escapeHtml(html: string): string {

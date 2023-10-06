@@ -1,0 +1,36 @@
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="./reset.css">
+        <link rel="stylesheet" href="./vscode.css">
+        <title>Webview Content</title>
+    </head>
+    <style>
+    .marker {
+        background-color: #0cf01431; /* Light green background for suggested lines */
+        padding: 2px;
+        border-radius: 2px;
+        font-family: var(--vscode-editor-font-family); /* Specify your desired font family */
+        font-size: 12px; /* Adjust font size as needed */
+        /* Add any other styles specific to marker (suggested) lines */
+    }
+    .code-line {
+        margin: 5px 0;
+        white-space: pre-wrap;
+    }
+    .code-container {
+    white-space: pre-wrap;
+    }
+    </style>
+    <body>
+        <div class="code-container">
+            <h2>Copilot Suggestions</h2>
+            <!-- <div class="code-line ">${escapeHtml(selectedCode)}</div>
+            <div class="code-line marker">${escapeHtml(suggestedCode)}</div> -->
+            <div class="code-line " id="res"></div>
+            <button id="copyButton">Copy</button>
+            <button id="insertButton">Insert Suggested Code</button>
+        </div>
+    </body>
+</html>
